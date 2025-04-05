@@ -6,6 +6,24 @@ from pydub.silence import split_on_silence
 import matplotlib.pyplot as plt
 import os
 
+def RemoverSilencio_y_Digitalizar(input_file, output_file, sample_rate=16000, num_bits=8, silence_thresh=-40, min_silence_len=700, keep_silence=500):
+    audio = AudioSegment.from_file(input_file)
+
+    segmentos = split_on_silence(audio, min_silence_len=min_silence_len, silence_thresh=silence_thresh, keep_silence=keep_silence)
+    audioCombinado = AudioSegment.empty()
+    for segmento in segmentos:
+        audioCombinado += segmento
+
+    sampled_audio = Muestreo(audioCombinado, sample_rate)
+    quantized_audio = Cuantificacion(sampled_audio, num_bits)
+    encoded_audio = Codificacion(quantized_audio)
+    xf, yf = Transformacion_Fourier(sampled_audio, sample_rate)
+
+    with open(output_file, 'wb') as f:
+        f.write(encoded_audio)
+ 
+    return xf, yf
+
 def Muestreo(audio, sample_rate):
     audio_samples = np.array(audio.get_array_of_samples())  
     resampled_audio = np.interp(
@@ -30,9 +48,11 @@ def Transformacion_Fourier(audio_samples, sample_rate):
     sample_period = 1.0 / sample_rate
     yf = fft(audio_samples)
     xf = np.linspace(0.0, 1.0/(2.0*sample_period), total_Samples//2)
+
     return xf, 2.0/total_Samples * np.abs(yf[0:total_Samples//2])
 
 def Histogramas(xf, yf):
+
     plt.subplot(2, 1, 1)
     plt.plot(xf, yf)
     plt.xlabel('Frecuencia (Hz)')
@@ -48,34 +68,16 @@ def Histogramas(xf, yf):
     plt.tight_layout()
     plt.show()
 
-def RemoverSilencio_y_Digitalizar(input_file, output_file, sample_rate=16000, num_bits=8, silence_thresh=-40, min_silence_len=700, keep_silence=500):
-    audio = AudioSegment.from_file(input_file)
-
-    segmentos = split_on_silence(audio, min_silence_len=min_silence_len, silence_thresh=silence_thresh, keep_silence=keep_silence)
-    audioCombinado = AudioSegment.empty()
-    for segmento in segmentos:
-        audioCombinado += segmento
-
-    sampled_audio = Muestreo(audioCombinado, sample_rate)
-    quantized_audio = Cuantificacion(sampled_audio, num_bits)
-    encoded_audio = Codificacion(quantized_audio)
-    xf, yf = Transformacion_Fourier(sampled_audio, sample_rate)
-
-    with open(output_file, 'wb') as f:
-        f.write(encoded_audio)
- 
-    return xf, yf
-
 input_file = 'C:/Proyecto/Audio1.mp3'
-output_file = 'AudioModificado.wav'
+output_file = 'AudioFinal.wav'
 
 xf, yf = RemoverSilencio_y_Digitalizar(input_file, output_file)
 
 fundamental_freq = xf[np.argmax(yf)]
 print(f"Frecuencia fundamental: {fundamental_freq} Hz")
 
-Histogramas(xf, yf)
-
 min_freq = xf[np.argmax(yf > 0)]
 max_freq = xf[np.argmax(yf[::-1] > 0)]
 print(f"Rango de frecuencia de la voz: {min_freq} Hz - {max_freq} Hz")
+
+Histogramas(xf, yf)
