@@ -17,7 +17,6 @@ ARCHIVO2 = "Madrid_listings.csv"
 def cargar_y_limpia_datos(ruta_archivo, nombre_ciudad):
     df = pd.read_csv(ruta_archivo)
     df['ciudad'] = nombre_ciudad
-
     columnas = ['id', 'name', 'host_id', 'neighbourhood', 'latitude', 'longitude', 'room_type',
                 'price', 'minimum_nights', 'availability_365', 'number_of_reviews', 
                 'last_review', 'reviews_per_month']
@@ -32,26 +31,28 @@ def cargar_y_limpia_datos(ruta_archivo, nombre_ciudad):
 
     percentil_99 = df['price'].quantile(0.99)
     df = df[df['price'] < percentil_99]
-
     return df
 
 df1 = cargar_y_limpia_datos(ARCHIVO1, CIUDAD1)
 df2 = cargar_y_limpia_datos(ARCHIVO2, CIUDAD2)
 df = pd.concat([df1, df2], ignore_index=True)
 
-df['tasa_ocupación'] = 1 - (df['availability_365'] / 365)
+#Análisis de tendencias
+df['tasa_ocupacion'] = 1 - (df['availability_365'] / 365)
 
 resumen_ciudad = df.groupby('ciudad').agg({
-    'precio': ['promedio', 'mediana'],
-    'Tasa_ocupación': 'promedio',
-    'Estancia_mínima': 'mediana'
+    'price': ['mean', 'median'],
+    'tasa_ocupacion': 'mean',
+    'minimum_nights': 'median'
 }).round(2)
 print("Resumen por ciudad:\n", resumen_ciudad)
 
 for c in [CIUDAD1, CIUDAD2]:
-    correlacion = df[df['ciudad'] == c][['price', 'tasa_ocupación']].corr().iloc[0,1]
+    correlacion = df[df['ciudad'] == c][['price', 'tasa_ocupacion']].corr().iloc[0,1]
     print(f"Correlación precio-ocupación en {c}: {correlacion:.2f}")
 
+#Visualización de tendencias
+#Visualización de la distribución de precios
 plt.figure(figsize=(8,5))
 sns.boxplot(x='ciudad', y='price', data=df)
 plt.title('Distribución de Precios por Ciudad')
@@ -76,7 +77,13 @@ for c in [CIUDAD1, CIUDAD2]:
     plt.ylabel('Latitud')
     plt.show()
 
-fig = px.scatter_mapbox(df, lat="latitud", lon="longitud", color="precio", size="tasa_ocupación", hover_name="Barrio", 
+fig = px.scatter_mapbox(
+    df, 
+    lat="latitude",
+    lon="longitude", 
+    color="price", 
+    size="tasa_ocupacion", 
+    hover_name="neighbourhood", 
     mapbox_style="carto-positron",
     zoom=5,
     title="Distribución Geográfica de Airbnb por Precio y Ocupación",
